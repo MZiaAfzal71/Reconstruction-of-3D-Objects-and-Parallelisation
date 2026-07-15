@@ -19,15 +19,15 @@ from data.shapes_3D_data import data_3d_shape
 from surfaces.surfaces_numba_st import *
 from surfaces.surfaces_numba import *
 
-import subprocess, sys, json, tempfile, os
+import subprocess, json, tempfile, os
 from pathlib import Path
 import numpy as np
 import pandas as pd
 import cloudpickle
 
-if "google.colab" in sys.modules:
+if "COLAB_GPU" in os.environ:
     platform_env = 'Colab'
-elif "kaggle_secrets" in sys.modules or os.getenv("KAGGLE_KERNEL_RUN_TYPE"):
+elif "KAGGLE_KERNEL_RUN_TYPE" in os.environ:
     platform_env = 'Kaggle'
 else:
     platform_env = 'Unknown'

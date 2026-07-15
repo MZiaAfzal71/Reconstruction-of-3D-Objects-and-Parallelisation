@@ -28,9 +28,9 @@ import numpy as np
 import pandas as pd
 import cloudpickle
 
-if "google.colab" in sys.modules:
+if "COLAB_GPU" in os.environ:
     platform_env = 'Colab'
-elif "kaggle_secrets" in sys.modules or os.getenv("KAGGLE_KERNEL_RUN_TYPE"):
+elif "KAGGLE_KERNEL_RUN_TYPE" in os.environ:
     platform_env = 'Kaggle'
 else:
     platform_env = 'Unknown'
