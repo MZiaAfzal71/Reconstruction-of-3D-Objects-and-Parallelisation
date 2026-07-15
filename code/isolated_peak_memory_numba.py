@@ -19,7 +19,7 @@ from data.shapes_3D_data import data_3d_shape
 from surfaces.surfaces_numba_st import *
 from surfaces.surfaces_numba import *
 
-import subprocess, json, tempfile, os
+import subprocess, sys, json, tempfile, os
 from pathlib import Path
 import numpy as np
 import pandas as pd
