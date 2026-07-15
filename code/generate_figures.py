@@ -19,7 +19,7 @@ precision_continuity_report_tangent_magnitudes_banana.csv,
 precision_continuity_report_tangent_magnitudes_apple.csv, and
 precision_continuity_report_tangent_magnitudes_vase.csv).
 """
-
+import os, sys
 import matplotlib
 import numpy as np
 import pandas as pd
@@ -27,24 +27,32 @@ from pathlib import Path
 import matplotlib.pyplot as plt
 from matplotlib.backends.backend_pdf import PdfPages
 
+if "COLAB_GPU" in os.environ:
+    platform_env = 'Colab'
+elif "KAGGLE_KERNEL_RUN_TYPE" in os.environ:
+    platform_env = 'Kaggle'
+else:
+    platform_env = 'Unknown'
+    print("Running locally or in another environment")
+
 matplotlib.use("Agg")
 
 # Resolve project root
 PROJECT_ROOT = Path(__file__).resolve().parents[1]
 
 # Target paths
-prec_cont_file_path = PROJECT_ROOT / "results" / "csv files" / "precision_continuity_report.csv"
-prec_cont_tangent_mag_banana = PROJECT_ROOT / "results" / "csv files" / "precision_continuity_report_tangent_magnitudes_banana.csv"
-prec_cont_tangent_mag_apple = PROJECT_ROOT / "results" / "csv files" / "precision_continuity_report_tangent_magnitudes_apple.csv"
-prec_cont_tangent_mag_vase = PROJECT_ROOT / "results" / "csv files" / "precision_continuity_report_tangent_magnitudes_vase.csv"
+prec_cont_file_path = PROJECT_ROOT / "results" / "csv files" / f"precision_continuity_report_{platform_env}.csv"
+prec_cont_tangent_mag_banana = PROJECT_ROOT / "results" / "csv files" / f"precision_continuity_report_tangent_magnitudes_banana_{platform_env}.csv"
+prec_cont_tangent_mag_apple = PROJECT_ROOT / "results" / "csv files" / f"precision_continuity_report_tangent_magnitudes_apple_{platform_env}.csv"
+prec_cont_tangent_mag_vase = PROJECT_ROOT / "results" / "csv files" / f"precision_continuity_report_tangent_magnitudes_vase_{platform_env}.csv"
 
-fig_path = PROJECT_ROOT / "results" / "pdf fig files" / "papers_three_figures.pdf"
+fig_path = PROJECT_ROOT / "results" / "pdf fig files" / f"papers_three_figures_{platform_env}.pdf"
 # Safely create directories
 fig_path.parent.mkdir(parents=True, exist_ok=True)
 
 
 
-MASTER_PATH = PROJECT_ROOT / "results" / "csv files" / "master_long_format.csv"
+MASTER_PATH = PROJECT_ROOT / "results" / "csv files" / f"master_long_format_{platform_env}.csv"
 PRECISION_REPORT_PATH = prec_cont_file_path
 TANGENT_MAG_PATHS = {
     "banana": prec_cont_tangent_mag_banana,
@@ -63,10 +71,10 @@ IMPLEMENTATION_STYLE = {
 }
 
 
-def fig1_scaling(master_path=MASTER_PATH, dtype="float32",
+def fig1_scaling(master_path=MASTER_PATH, platform="Colab", dtype="float32",
                   out_path=fig_path):
     master = pd.read_csv(master_path)
-    sub = master[(master['dtype'] == dtype)]
+    sub = master[(master['platform'] == platform) & (master['dtype'] == dtype)]
 
     objects = sorted(sub['object'].unique())
     fig, axes = plt.subplots(1, len(objects), figsize=(5 * len(objects), 4.2), sharey=True)
@@ -88,16 +96,16 @@ def fig1_scaling(master_path=MASTER_PATH, dtype="float32",
     axes[0].set_ylabel('Mean runtime (s)')
     handles, labels = axes[-1].get_legend_handles_labels()
     fig.legend(handles, labels, loc='lower center', ncol=4, bbox_to_anchor=(0.5, -0.08))
-    fig.suptitle(f'Runtime scaling by implementation ({dtype})')
+    fig.suptitle(f'Runtime scaling by implementation ({platform}, {dtype})')
     fig.tight_layout()
     out_path.savefig(fig)
     plt.close(fig)
 
 
-def fig2_speedup(master_path=MASTER_PATH, dtype="float32",
+def fig2_speedup(master_path=MASTER_PATH, platform="Colab", dtype="float32",
                   n2_target=5000, baseline="Serial Python", out_path="fig2_speedup.png"):
     master = pd.read_csv(master_path)
-    sub = master[(master['dtype'] == dtype)
+    sub = master[(master['platform'] == platform) & (master['dtype'] == dtype)
                  & (master['n2'] == n2_target)]
 
     objects = sorted(sub['object'].unique())
@@ -123,7 +131,7 @@ def fig2_speedup(master_path=MASTER_PATH, dtype="float32",
     ax.set_xticks(x + width * (len(implementations) - 1) / 2)
     ax.set_xticklabels(objects)
     ax.set_ylabel(f'Speedup vs. {baseline} (log scale)')
-    ax.set_title(f'Speedup at N={n2_target} ({dtype})')
+    ax.set_title(f'Speedup at N={n2_target} ({platform}, {dtype})')
     ax.legend(fontsize=8, ncol=2)
     ax.grid(True, axis='y', which='both', alpha=0.3)
     fig.tight_layout()
@@ -182,8 +190,8 @@ if __name__ == "__main__":
     import os
     with PdfPages(fig_path) as pdf:
         if os.path.exists(MASTER_PATH):
-            fig1_scaling(out_path=pdf)
-            fig2_speedup(out_path=pdf)
+            fig1_scaling(platform=platform_env, out_path=pdf)
+            fig2_speedup(platform=platform_env, out_path=pdf)
         else:
             print(f"Skipping Fig. 1/2: {MASTER_PATH} not found (run aggregate_results.py first).")
 

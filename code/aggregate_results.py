@@ -28,10 +28,18 @@ automatically.
 """
 
 import os
-import glob
+import glob, sys
 import numpy as np
 import pandas as pd
 from pathlib import Path
+
+if "COLAB_GPU" in os.environ:
+    platform_env = 'Colab'
+elif "KAGGLE_KERNEL_RUN_TYPE" in os.environ:
+    platform_env = 'Kaggle'
+else:
+    platform_env = 'Unknown'
+    print("Running locally or in another environment")
 
 
 # Resolve project root
@@ -40,13 +48,14 @@ PROJECT_ROOT = Path(__file__).resolve().parents[1]
 # Target paths
 RESULTS_DIR = PROJECT_ROOT / "results" / "csv files"  # <- change to wherever you put the .csv files
 
+
 # Target paths
-prec_cont_file_path = RESULTS_DIR / "precision_continuity_report.csv"
-master_file_path = RESULTS_DIR / "master_long_format.csv"
-merged_table_path = RESULTS_DIR / "merged_table.csv"
-mem_trans_table_path = RESULTS_DIR / "memory_transfer_table.csv"
-mem_trans_table_gpu_path = RESULTS_DIR / "memory_transfer_table_gpu_transfer_vs_kernel.csv"
-merged_table_prec_path = RESULTS_DIR / "merged_table_with_precision.csv"
+prec_cont_file_path = RESULTS_DIR / f"precision_continuity_report_{platform_env}.csv"
+master_file_path = RESULTS_DIR / f"master_long_format_{platform_env}.csv"
+merged_table_path = RESULTS_DIR / f"merged_table_{platform_env}.csv"
+mem_trans_table_path = RESULTS_DIR / f"memory_transfer_table_{platform_env}.csv"
+mem_trans_table_gpu_path = RESULTS_DIR / f"memory_transfer_table_gpu_transfer_vs_kernel_{platform_env}.csv"
+merged_table_prec_path = RESULTS_DIR / f"merged_table_with_precision_{platform_env}.csv"
 # Safely create directories
 master_file_path.parent.mkdir(parents=True, exist_ok=True)
 merged_table_path.parent.mkdir(parents=True, exist_ok=True)
@@ -54,6 +63,7 @@ mem_trans_table_path.parent.mkdir(parents=True, exist_ok=True)
 mem_trans_table_gpu_path.parent.mkdir(parents=True, exist_ok=True)
 merged_table_prec_path.parent.mkdir(parents=True, exist_ok=True)
 
+PLATFORMS = ["Colab", "Kaggle"]
 OBJECTS = ["banana", "apple", "vase"]
 N2_TO_N1 = {1200: 300, 2500: 625, 5000: 1250}  # from the fixed (N1, N2) pairing used in every driver
 
@@ -69,15 +79,15 @@ FILE_PATTERNS = {
 }
 
 
-def _find_file(prefix, obj):
+def _find_file(prefix, platform, obj):
     # tolerant match: allow "stats"/"stat", case variants
-    candidates = glob.glob(os.path.join(RESULTS_DIR, f"{prefix}*{obj}*.csv"))
+    candidates = glob.glob(os.path.join(RESULTS_DIR, f"{prefix}*{obj}*{platform}*.csv"))
     if not candidates:
-        candidates = glob.glob(os.path.join(RESULTS_DIR, f"*{prefix}*{obj}*.csv"))
+        candidates = glob.glob(os.path.join(RESULTS_DIR, f"*{prefix}*{obj}*{platform}*.csv"))
     return candidates[0] if candidates else None
 
 
-def _load_cpu_staged(path, impl, obj):
+def _load_cpu_staged(path, impl, platform, obj):
     df = pd.read_csv(path)
     required = {'Start time', 'Surface ET/End Time', 'n2', 'dtype'}
     missing = required - set(df.columns)
@@ -90,10 +100,10 @@ def _load_cpu_staged(path, impl, obj):
     df['transfer_s'] = 0.0        # no device transfer for CPU-only implementations
     df['n1'] = df['n2'].map(N2_TO_N1)
     df['peak_mem_mb'] = df.get('peak_mem_mb', np.nan)
-    return _summarize(df, impl, obj)
+    return _summarize(df, impl, platform, obj)
 
 
-def _load_gpu_numba(path, impl, obj):
+def _load_gpu_numba(path, impl, platform, obj):
     df = pd.read_csv(path)
     required = {'t_total', 'n2', 'dtype', 't_kernel_surf_pts', 't_h2d_transfer', 't_d2h_transfer'}
     missing = required - set(df.columns)
@@ -106,10 +116,10 @@ def _load_gpu_numba(path, impl, obj):
     df['transfer_s'] = df['t_h2d_transfer'] + df['t_d2h_transfer']
     df['n1'] = df['n2'].map(N2_TO_N1)
     df['peak_mem_mb'] = df.get('peak_gpu_mem_mb', np.nan)
-    return _summarize(df, impl, obj)
+    return _summarize(df, impl, platform, obj)
 
 
-def _load_gpu_torch(path, impl, obj):
+def _load_gpu_torch(path, impl, platform, obj):
     df = pd.read_csv(path)
     required = {'t_total', 'n2', 'dtype', 't_kernel_surf_pts', 't_h2d_transfer', 't_d2h_transfer'}
     missing = required - set(df.columns)
@@ -122,7 +132,7 @@ def _load_gpu_torch(path, impl, obj):
     df['transfer_s'] = df['t_h2d_transfer'] + df['t_d2h_transfer']
     df['n1'] = df['n2'].map(N2_TO_N1)
     df['peak_mem_mb'] = df.get('peak_mem_mb', np.nan)
-    return _summarize(df, impl, obj)
+    return _summarize(df, impl, platform, obj)
 
 
 LOADERS = {"cpu_staged": _load_cpu_staged, "gpu_numba": _load_gpu_numba, "gpu_torch": _load_gpu_torch}
@@ -140,13 +150,13 @@ def _normalize_dtype(val):
     return s
 
 
-def _summarize(df, impl, obj):
+def _summarize(df, impl, platform, obj):
     rows = []
     df = df.copy()
     df['dtype'] = df['dtype'].map(_normalize_dtype)
     for (n2, dtype), g in df.groupby(['n2', 'dtype']):
         rows.append({
-            'implementation': impl, 'object': obj,
+            'implementation': impl, 'platform': platform, 'object': obj,
             'n1': N2_TO_N1.get(int(n2), np.nan), 'n2': int(n2), 'dtype': str(dtype),
             'mean_total_s': g['total_s'].mean(), 'std_total_s': g['total_s'].std(),
             'mean_kernel_s': g['kernel_s'].mean(), 'mean_transfer_s': g['transfer_s'].mean(),
@@ -159,12 +169,13 @@ def build_master():
     all_rows = []
     missing_files = []
     for impl, (prefix, kind) in FILE_PATTERNS.items():
-        for obj in OBJECTS:
-            path = _find_file(prefix, obj)
-            if path is None:
-                missing_files.append((impl, obj))
-                continue
-            all_rows.append(LOADERS[kind](path, impl, obj))
+        for platform in PLATFORMS:
+            for obj in OBJECTS:
+                path = _find_file(prefix, platform, obj)
+                if path is None:
+                    missing_files.append((impl, platform, obj))
+                    continue
+                all_rows.append(LOADERS[kind](path, impl, platform, obj))
     if missing_files:
         print(f"WARNING: {len(missing_files)} expected files not found (skipped):")
         for m in missing_files:
@@ -181,7 +192,7 @@ def build_merged_table(master, n2_target=5000, out_prefix=merged_table_path):
     mean_total_s per implementation. This is the combined
     Table 1 + Table 2 replacement."""
     sub = master[master['n2'] == n2_target].copy()
-    sub['col'] = sub['implementation']
+    sub['col'] = sub['implementation'] + ' (' + sub['platform'] + ')'
     wide = sub.pivot_table(index=['object', 'dtype'], columns='col',
                             values='mean_total_s', aggfunc='first')
     wide = wide.reindex(sorted(wide.index), )
@@ -197,13 +208,13 @@ def build_memory_transfer_table(master, n2_target=5000, out_prefix1=mem_trans_ta
     transfer; all rows for memory)."""
     sub = master[master['n2'] == n2_target].copy()
     mem = sub.pivot_table(index=['object', 'dtype'],
-                           columns=['implementation'],
+                           columns=['implementation', 'platform'],
                            values='mean_peak_mem_mb', aggfunc='first')
     mem.to_csv(out_prefix1)
 
     gpu = sub[sub['implementation'].isin(['Numba CUDA', 'PyTorch CUDA'])]
     transfer = gpu.pivot_table(index=['object', 'dtype'],
-                                columns=['implementation'],
+                                columns=['implementation', 'platform'],
                                 values=['mean_kernel_s', 'mean_transfer_s'], aggfunc='first')
     transfer.to_csv(out_prefix2)
     print(f"Saved: {out_prefix1} and {out_prefix2}")
@@ -239,7 +250,13 @@ def merge_isolated_cpu_memory(master, isolated_paths, out_path=master_file_path)
     for CPU implementations with the subprocess-isolated measurements
     (see isolated_memory_*.py). GPU rows are untouched -- their memory
     tracking (torch.cuda.max_memory_allocated / cuda memory-info, both
-    reset per run) was already correctly isolated and doesn't need this."""
+    reset per run) was already correctly isolated and doesn't need this.
+
+    Merges on platform too, so a Colab-only isolated-memory run does not
+    get broadcast onto Kaggle's rows. Files from before the harness scripts
+    recorded a `platform` column are NOT auto-merged here -- tag them first
+    (add a 'platform' column with the correct value) or they'll be skipped
+    with a warning, since guessing wrong would silently corrupt the table."""
 
     import os
     frames = []
@@ -254,13 +271,20 @@ def merge_isolated_cpu_memory(master, isolated_paths, out_path=master_file_path)
         return master
 
     iso = pd.concat(frames, ignore_index=True)
+    if 'platform' not in iso.columns:
+        raise ValueError(
+            "One or more isolated-memory files have no 'platform' column. "
+            "Add one before merging (e.g. df['platform'] = 'Colab'; "
+            "df.to_excel(...)) -- merging without it would silently apply "
+            "one platform's numbers to both Colab and Kaggle rows."
+        )
 
     iso = iso.rename(columns={'peak_mem_mb_mean': 'peak_mem_mb_isolated'})
     iso['dtype'] = iso['dtype'].map(_normalize_dtype)
 
     merged = master.merge(
-        iso[['implementation', 'object', 'n2', 'dtype', 'peak_mem_mb_isolated']],
-        on=['implementation', 'object', 'n2', 'dtype'], how='left'
+        iso[['implementation', 'object', 'n2', 'dtype', 'platform', 'peak_mem_mb_isolated']],
+        on=['implementation', 'object', 'n2', 'dtype', 'platform'], how='left'
     )
     merged['mean_peak_mem_mb'] = merged['peak_mem_mb_isolated'].combine_first(merged['mean_peak_mem_mb'])
     merged = merged.drop(columns=['peak_mem_mb_isolated'])
@@ -272,11 +296,11 @@ def merge_isolated_cpu_memory(master, isolated_paths, out_path=master_file_path)
 if __name__ == "__main__":
     master = build_master()
     master = merge_isolated_cpu_memory(master, [
-        os.path.join(RESULTS_DIR, "cpu_memory_isolated.csv"),
-        os.path.join(RESULTS_DIR, "numba_cpu_memory_isolated.csv"),
-        os.path.join(RESULTS_DIR, "torch_cpu_memory_isolated.csv"),
+        os.path.join(RESULTS_DIR, f"cpu_memory_isolated_{platform_env}.csv"),
+        os.path.join(RESULTS_DIR, f"numba_cpu_memory_isolated_{platform_env}.csv"),
+        os.path.join(RESULTS_DIR, f"torch_cpu_memory_isolated_{platform_env}.csv"),
     ])
-    print("Saved: master_long_format.xlsx (", len(master), "rows )")
+    print("Saved: master_long_format.csv (", len(master), "rows )")
 
     wide = build_merged_table(master, n2_target=5000)
     print(wide)
