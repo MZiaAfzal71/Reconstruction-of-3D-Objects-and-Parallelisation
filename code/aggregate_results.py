@@ -271,6 +271,7 @@ def merge_isolated_cpu_memory(master, isolated_paths, out_path=master_file_path)
         return master
 
     iso = pd.concat(frames, ignore_index=True)
+    iso['platform'] = platform_env
     if 'platform' not in iso.columns:
         raise ValueError(
             "One or more isolated-memory files have no 'platform' column. "
