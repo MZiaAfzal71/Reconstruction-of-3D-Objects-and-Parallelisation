@@ -151,7 +151,7 @@ Since the repository already contains the benchmark results, this step can be ex
 
 Any modern multi-core CPU supported by Python.
 
-## GPU (optional)
+## GPU
 
 A CUDA-enabled NVIDIA GPU is required for executing the GPU benchmarks.
 
