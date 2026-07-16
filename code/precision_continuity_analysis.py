@@ -171,5 +171,9 @@ print("🚀 Precision (float32 vs float64) and C1->C0 continuity analysis")
 print("🚀 n1=900 and n2=3600 for each object: banana, apple, and vase.")
 print("=" * 75)
 
-report, magnitude_records = run_precision_continuity_analysis(['banana', 'apple', 'vase'], n1=900, n2=3600)
+if platform_env == 'Colab':
+  report, magnitude_records = run_precision_continuity_analysis(['banana', 'apple', 'vase'], n1=800, n2=3200)
+else:
+  report, magnitude_records = run_precision_continuity_analysis(['banana', 'apple', 'vase'], n1=900, n2=3600)
+  
 report
