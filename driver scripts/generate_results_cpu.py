@@ -15,14 +15,10 @@ SCRIPTS = [
     "reconstruct_numba_cpu.py",
     "reconstruct_numba_st_cpu.py",
     "reconstruct_pytorch_cpu.py",
-    # "reconstruct_numba_gpu.py",
-    # "reconstruct_pytorch_gpu.py",
     "precision_continuity_analysis.py",
     "isolated_peak_memory_python.py",
     "isolated_peak_memory_numba.py",
     "isolated_peak_memory_pytorch.py",
-    # "aggregate_results.py",
-    # "generate_figures.py",
 ]
 
 for script in SCRIPTS:
