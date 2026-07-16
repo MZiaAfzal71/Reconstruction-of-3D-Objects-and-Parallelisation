@@ -24,7 +24,7 @@ Contains the complete source code implementing the reconstruction algorithm and 
 
 This directory includes:
 
-* Pure Python (nested loops) implementation
+* Pure Python Numpy-Assisted (nested loops) implementation
 * NumPy vectorized implementation
 * Numba CPU implementation
 * Numba parallel CPU implementation
@@ -155,12 +155,6 @@ Any modern multi-core CPU supported by Python.
 
 A CUDA-enabled NVIDIA GPU is required for executing the GPU benchmarks.
 
-Recommended GPUs include
-
-* Tesla T4
-* NVIDIA A100
-* NVIDIA L4
-
 ---
 
 # Software Requirements
@@ -173,9 +167,6 @@ The project is implemented in Python and uses
 * Numba
 * PyTorch
 * SciPy
-* psutil
-
-Additional dependencies are listed in `requirements.txt`.
 
 ---
 
@@ -193,14 +184,3 @@ Running the benchmark suite generates
 
 ---
 
-# Citation
-
-If you use this repository in your research, please cite the accompanying manuscript:
-
-**Cross-Sectional 3D Surface Reconstruction as a Scientific Python Benchmark: Comparing NumPy, Numba, and PyTorch on CPUs and GPUs**
-
----
-
-# License
-
-This repository is released for academic and research purposes. Please refer to the LICENSE file for licensing information.
